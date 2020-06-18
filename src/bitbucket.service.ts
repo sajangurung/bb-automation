@@ -40,29 +40,46 @@ export class BitbucketService {
 
       return undefined;
     } catch (err) {
-      console.log(err);
+      console.log(this.parseError(err));
     }
   }
 
-  async createNewBranches(repoSlug: string, name: string) {
+  async createNewBranches({
+    repoSlug,
+    name,
+    target,
+  }: {
+    repoSlug: string;
+    name: string;
+    target: string;
+  }) {
     const body = {
       name,
       target: {
-        hash: "release/1.1.13",
+        hash: target,
       },
     };
-
     try {
-      const { data, headers } = await this.client.refs.createBranch({
+      await this.client.refs.createBranch({
         _body: body,
         repo_slug: repoSlug,
         workspace: this.workspace,
       });
     } catch (err) {
-      console.log(err);
+      console.log(this.parseError(err));
     }
   }
-  async createPullRequests(title: string, repoSlug: string, source: string, destination: string) {
+  async createPullRequests({
+    title,
+    repoSlug,
+    source,
+    destination,
+  }: {
+    title: string;
+    repoSlug: string;
+    source: string;
+    destination: string;
+  }) {
     const body = {
       title: title,
       source: {
@@ -77,20 +94,14 @@ export class BitbucketService {
       },
       reviewers: {},
     };
-
     try {
-      const { data, status } = await this.client.repositories.createPullRequest({
+      await this.client.repositories.createPullRequest({
         _body: body,
         repo_slug: repoSlug,
         workspace: this.workspace,
       });
-      if (status === 201) {
-        return data;
-      }
-
-      throw Error("Something went wrong");
     } catch (err) {
-      console.log(err);
+      return this.parseError(err);
     }
   }
 
@@ -117,27 +128,29 @@ export class BitbucketService {
         },
         {
           kind: "hotfix",
+          enabled: true,
           prefix: "hotfix/",
         },
         {
           kind: "release",
-          enabled: false,
+          enabled: true,
+          prefix: "release/",
         },
       ],
     };
 
     try {
-      const { data, status } = await this.client.repositories.updateBranchingModelSettings({
+      await this.client.repositories.updateBranchingModelSettings({
         _body: body,
         repo_slug: repoSlug,
         workspace: this.workspace,
       });
-
-      if (status === 201) {
-        return data;
-      }
     } catch (err) {
-      console.log(err);
+      console.log(this.parseError(err));
     }
+  }
+
+  private async parseError(response: any) {
+    return response.error?.error?.message;
   }
 }

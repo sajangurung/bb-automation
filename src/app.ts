@@ -11,16 +11,25 @@ export class App {
   async run() {
     // Get all repositories
     const repositories = await this.getAllRepositories();
-    console.log("Found repositories", repositories);
+    console.log("Found repositories", repositories.length);
 
     const prPromises = repositories.map((repo: Repository) =>
-      this.bitbucket.createPullRequests("merge release", repo.slug, "release/1.1.12", "master")
+      this.bitbucket.createPullRequests({
+        title: "merge release",
+        repoSlug: repo.slug,
+        source: "release/1.1.12",
+        destination: "master",
+      })
     );
     await Promise.all(prPromises);
     console.log("Finished creating pull requests");
 
     const createNewBranchPromises = repositories.map((repo: Repository) =>
-      this.bitbucket.createNewBranches(repo.slug, "release/1.1.15")
+      this.bitbucket.createNewBranches({
+        repoSlug: repo.slug,
+        name: "release/1.1.15",
+        target: "release/1.1.13",
+      })
     );
     await Promise.all(createNewBranchPromises);
     console.log("Finished creating new branches");
@@ -35,9 +44,8 @@ export class App {
   async getAllRepositories() {
     const result = await this.getRepositories();
     const projects = Config.PROJECTS;
-    const found = [] as Repository[];
     if (result?.values) {
-      return await this.filterRepositories(result, projects, found);
+      return await this.filterRepositories(result, projects);
     }
 
     return [];
@@ -50,8 +58,12 @@ export class App {
   async filterRepositories(
     result: Paginated<Repository>,
     projects: string[],
-    found: Repository[]
+    found?: Repository[]
   ): Promise<any> {
+    if (!found) {
+      found = [];
+    }
+
     for (let i = 0; i < result.values.length; i++) {
       const repo = result.values[i];
       if (projects.includes(repo.name)) {
