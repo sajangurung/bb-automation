@@ -23,7 +23,7 @@ export class BitbucketService {
   };
 
   constructor() {
-    this.workspace = "{f9184af2-def1-47eb-9fe2-96d5534435e4}";
+    this.workspace = Config.WORKSPACE;
     this.client = new Bitbucket(this.configOptions);
   }
 

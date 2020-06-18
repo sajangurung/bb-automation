@@ -9,16 +9,22 @@ export class App {
     this.bitbucket = new BitbucketService();
   }
   async run() {
+    const mergeReleaseTitle = "merge release";
+    const mergeReleaseBranch = "release/1.1.12";
+    const mergeReleaseDestination = "master";
+    const newBranchName = "release/1.1.13";
+    const newBranchTarget = mergeReleaseBranch;
+
     // Get all repositories
     const repositories = await this.getAllRepositories();
     console.log("Found repositories", repositories.length);
 
     const prPromises = repositories.map((repo: Repository) =>
       this.bitbucket.createPullRequests({
-        title: "merge release",
+        title: mergeReleaseTitle,
         repoSlug: repo.slug,
-        source: "release/1.1.12",
-        destination: "master",
+        source: mergeReleaseBranch,
+        destination: mergeReleaseDestination,
       })
     );
     await Promise.all(prPromises);
@@ -27,15 +33,15 @@ export class App {
     const createNewBranchPromises = repositories.map((repo: Repository) =>
       this.bitbucket.createNewBranches({
         repoSlug: repo.slug,
-        name: "release/1.1.15",
-        target: "release/1.1.13",
+        name: newBranchName,
+        target: newBranchTarget,
       })
     );
     await Promise.all(createNewBranchPromises);
     console.log("Finished creating new branches");
 
     const updateBranchingModelPromises = repositories.map((repo: Repository) =>
-      this.bitbucket.updateBranchingModel(repo.slug, "release/1.1.13")
+      this.bitbucket.updateBranchingModel(repo.slug, newBranchName)
     );
     await Promise.all(updateBranchingModelPromises);
     console.log("Finished updating branching model");

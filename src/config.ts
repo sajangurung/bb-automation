@@ -11,4 +11,5 @@ export const Config = {
   PROJECTS: safeParse(REPOSITORIES),
   USERNAME: process.env["USERNAME"] || "",
   APP_PASSWORD: process.env["APP_PASSWORD"] || "",
+  WORKSPACE: process.env["WORKSPACE"],
 };
