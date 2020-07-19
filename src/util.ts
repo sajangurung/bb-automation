@@ -1,5 +1,6 @@
 export const cleanRepoName = (repoName: string) => {
-  const split = repoName.split("-");
+  const name = repoName.toLowerCase();
+  const split = name.split("-");
   const filter = split.filter((word) => !["portal", "backend"].includes(word));
   return filter.join(" ");
 };
@@ -14,8 +15,8 @@ export const mapStage = (stage: string) => {
   return "Test";
 };
 
-// input "{8fbe1e67-8a41-4719-8d33-cced6d1860ec}~PRODUCTION Client Portal.json";
-// output ["{8fbe1e67-8a41-4719-8d33-cced6d1860ec}", "PRODUCTION", "Client Portal"];
+// input "{guid}~STAGENAME APPNAME.json";
+// output ["{guid}", "STAGENAME", "APPNAME"];
 export const splitFullName = (fullName: string) => {
   const [repoId, rest] = fullName.split("~");
   const cleanFileName = rest.replace(".json", "");
