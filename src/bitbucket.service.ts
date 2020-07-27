@@ -32,21 +32,13 @@ export class BitbucketService {
   }
 
   async getRepositories(page: number = 1): Promise<Paginated<Repository> | undefined> {
-    try {
-      const { data, status } = await this.client.repositories.list({
-        workspace: this.workspace,
-        sort: "-updated_on",
-        page,
-        pagelen: this.pageLength,
-      });
-      if (status === 200) {
-        return data;
-      }
-
-      throw new Error(`something went wrong, status is ${status}`);
-    } catch (err) {
-      console.log(this.parseError(err));
-    }
+    const { data } = await this.client.repositories.list({
+      workspace: this.workspace,
+      sort: "-updated_on",
+      page,
+      pagelen: this.pageLength,
+    });
+    return data;
   }
 
   async createNewBranches(repo_slug: string, target: string, name: string) {
@@ -56,15 +48,11 @@ export class BitbucketService {
         hash: target,
       },
     };
-    try {
-      await this.client.refs.createBranch({
-        _body: body,
-        repo_slug,
-        workspace: this.workspace,
-      });
-    } catch (err) {
-      console.log(this.parseError(err));
-    }
+    await this.client.refs.createBranch({
+      _body: body,
+      repo_slug,
+      workspace: this.workspace,
+    });
   }
   async createPullRequests(repo_slug: string, source: string, destination: string, title: string) {
     const body = {
@@ -81,15 +69,12 @@ export class BitbucketService {
       },
       reviewers: {},
     };
-    try {
-      await this.client.repositories.createPullRequest({
-        _body: body,
-        repo_slug,
-        workspace: this.workspace,
-      });
-    } catch (err) {
-      return this.parseError(err);
-    }
+
+    await this.client.repositories.createPullRequest({
+      _body: body,
+      repo_slug,
+      workspace: this.workspace,
+    });
   }
 
   async updateBranchingModel(repo_slug: string, name: string) {
@@ -126,15 +111,13 @@ export class BitbucketService {
       ],
     };
 
-    try {
-      await this.client.repositories.updateBranchingModelSettings({
-        _body: body,
-        repo_slug,
-        workspace: this.workspace,
-      });
-    } catch (err) {
-      console.log(this.parseError(err));
-    }
+    const { data } = await this.client.repositories.updateBranchingModelSettings({
+      _body: body,
+      repo_slug,
+      workspace: this.workspace,
+    });
+
+    return data;
   }
 
   async listDeployments(repo_slug: string) {
@@ -154,35 +137,25 @@ export class BitbucketService {
   }
 
   async listEnvironments(repo_slug: string): Promise<Paginated<Environment> | undefined> {
-    try {
-      const { data, status } = await this.client.repositories.listEnvironments({
-        repo_slug,
-        workspace: this.workspace,
-        pagelen: this.pageLength,
-      });
+    const { data } = await this.client.repositories.listEnvironments({
+      repo_slug,
+      workspace: this.workspace,
+      pagelen: this.pageLength,
+    });
 
-      if (status === 200) {
-        return data;
-      }
-    } catch (err) {
-      console.log(this.parseError(err));
-    }
+    return data;
   }
 
   async listEnvironmentVariables(repo_slug: string, environment_uuid: string, page: number = 1) {
-    try {
-      const { data, status } = await this.client.repositories.listDeploymentVariables({
-        repo_slug,
-        environment_uuid,
-        workspace: this.workspace,
-        page,
-        pagelen: this.pageLength,
-      });
+    const { data } = await this.client.repositories.listDeploymentVariables({
+      repo_slug,
+      environment_uuid,
+      workspace: this.workspace,
+      page,
+      pagelen: this.pageLength,
+    });
 
-      return data;
-    } catch (err) {
-      console.log(this.parseError(err));
-    }
+    return data;
   }
 
   async createDeploymentVariable(
@@ -192,21 +165,16 @@ export class BitbucketService {
     value: string,
     secured: boolean
   ) {
-    try {
-      const _body = { key, value, secured };
-      const { data } = await this.client.pipelines.createDeploymentVariable({
-        _body,
-        environment_uuid,
-        repo_slug,
-        variable_uuid: "dummy", // this is dumb
-        workspace: this.workspace,
-      });
+    const _body = { key, value, secured };
+    const { data } = await this.client.pipelines.createDeploymentVariable({
+      _body,
+      environment_uuid,
+      repo_slug,
+      variable_uuid: "dummy", // this is dumb
+      workspace: this.workspace,
+    });
 
-      return data;
-    } catch (err) {
-      console.log(err);
-      console.log(this.parseError(err));
-    }
+    return data;
   }
 
   async updateDeploymentVariable(
@@ -217,20 +185,16 @@ export class BitbucketService {
     value: string,
     secured: boolean
   ) {
-    try {
-      const _body = { key, value, secured };
-      const { data } = await this.client.pipelines.updateDeploymentVariable({
-        _body,
-        environment_uuid,
-        repo_slug,
-        variable_uuid,
-        workspace: this.workspace,
-      });
+    const _body = { key, value, secured };
+    const { data } = await this.client.pipelines.updateDeploymentVariable({
+      _body,
+      environment_uuid,
+      repo_slug,
+      variable_uuid,
+      workspace: this.workspace,
+    });
 
-      return data;
-    } catch (err) {
-      console.log(this.parseError(err));
-    }
+    return data;
   }
 
   async updateEnvironmentVariables(
@@ -238,98 +202,125 @@ export class BitbucketService {
     environment_uuid: string,
     variable_uuid: string
   ) {
-    try {
-      const _body = {};
-      const { data } = await this.client.repositories.updateDeploymentVariable({
-        _body,
-        environment_uuid,
-        repo_slug,
-        variable_uuid,
-        workspace: this.workspace,
-      });
+    const _body = {};
+    const { data } = await this.client.repositories.updateDeploymentVariable({
+      _body,
+      environment_uuid,
+      repo_slug,
+      variable_uuid,
+      workspace: this.workspace,
+    });
 
-      return data;
-    } catch (err) {
-      console.log(this.parseError(err));
-    }
+    return data;
   }
 
   async listVariablesForRepo(repo_slug: string, page: string = "1") {
-    try {
-      const { data, error } = await this.client.pipelines.listVariablesForRepo({
-        repo_slug,
-        workspace: this.workspace,
-        page,
-        pagelen: this.pageLength,
-      });
-      return data;
-    } catch (err) {
-      console.log(this.parseError(err));
-    }
+    const { data, error } = await this.client.pipelines.listVariablesForRepo({
+      repo_slug,
+      workspace: this.workspace,
+      page,
+      pagelen: this.pageLength,
+    });
+    return data;
   }
 
   async createPipelineVariable(repo_slug: string, key: string, value: string, secured: boolean) {
-    try {
-      const _body = { key, value, secured };
-      const { data, headers } = await this.client.repositories.createPipelineVariable({
-        _body,
-        repo_slug,
-        workspace: this.workspace,
-      });
-      return data;
-    } catch (err) {
-      console.log(this.parseError(err));
-    }
+    const _body = { key, value, secured };
+    const { data } = await this.client.repositories.createPipelineVariable({
+      _body,
+      repo_slug,
+      workspace: this.workspace,
+    });
+    return data;
   }
 
   async update(repo_slug: string, variable_uuid: string) {
-    try {
-      const _body = {};
-      const { data, headers } = await this.client.pipelines.updateVariable({
-        _body,
-        repo_slug,
-        variable_uuid,
-        workspace: this.workspace,
-      });
-    } catch (err) {
-      console.log(this.parseError(err));
-    }
+    const _body = {};
+    const { data } = await this.client.pipelines.updateVariable({
+      _body,
+      repo_slug,
+      variable_uuid,
+      workspace: this.workspace,
+    });
+
+    return data;
   }
 
-  async createEnvironment(repo_slug: string, name: string, environmentType: EnvironmentType) {
-    try {
-      const _body = {
-        environment_type: {
-          type: "deployment_environment_type",
-          name: environmentType,
-        },
-        name,
-      };
-      const { data, status, error } = await this.client.deployments.createEnvironment({
-        _body,
-        repo_slug,
-        workspace: this.workspace,
-      });
-      console.log(status, error);
-      return data;
-    } catch (err) {
-      console.log(this.parseError(err));
-    }
+  async createEnvironment(repo_slug: string, name: string, environmentType: string) {
+    const _body = {
+      environment_type: {
+        type: "deployment_environment_type",
+        name: environmentType,
+      },
+      name,
+    };
+    const { data } = await this.client.deployments.createEnvironment({
+      _body,
+      repo_slug,
+      workspace: this.workspace,
+    });
+    return data;
   }
 
   async updateEnvironment(repo_slug: string, environment_uuid: string, name: string) {
-    try {
-      const _body = {
-        name,
-      };
-      const { data, headers } = await this.client.deployments.updateEnvironment({
-        _body,
-        environment_uuid,
-        repo_slug,
-        workspace: this.workspace,
-      });
-    } catch (err) {
-      console.log(this.parseError(err));
+    const _body = {
+      name,
+    };
+    const { data } = await this.client.deployments.updateEnvironment({
+      _body,
+      environment_uuid,
+      repo_slug,
+      workspace: this.workspace,
+    });
+
+    return data;
+  }
+
+  async getAllRepositories(projects: any): Promise<Repository[]> {
+    const result = await this.getRepositories();
+    if (result?.values) {
+      if (Array.isArray(projects[0])) {
+        // multidimensional
+        return Promise.all(
+          projects.map((project: string[]) => this.filterRepositories(result, project))
+        );
+      } else {
+        return await this.filterRepositories(result, projects);
+      }
+    }
+
+    return [];
+  }
+
+  async filterRepositories(
+    result: Paginated<Repository>,
+    projects: string[],
+    found?: Repository[]
+  ): Promise<any> {
+    if (!found) {
+      found = [];
+    }
+
+    for (let i = 0; i < result.values.length; i++) {
+      const repo = result.values[i];
+      for (let j = projects.length; j >= 0; j--) {
+        if (projects[j] === repo.name) {
+          found.push(repo);
+          projects.splice(j, 1);
+        }
+      }
+    }
+
+    if (projects.length && result.next) {
+      const nextPage = parseInt(result.page + 1);
+      const nextResult = await this.getRepositories(nextPage);
+      if (nextResult) {
+        return this.filterRepositories(nextResult, projects, found);
+      }
+    }
+
+    if (!projects.length) {
+      return found;
     }
   }
 
