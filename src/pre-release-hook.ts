@@ -1,20 +1,20 @@
 import { BitbucketService } from "./bitbucket.service";
 import { writeFile as fsWriteFile, readFile as fsReadFile, readdir as fsReaddir } from "fs";
 import { promisify } from "util";
-import { splitFullName, mapStage } from "./util";
-import { Config } from "./config";
+import { splitFullName } from "./util";
 import * as _ from "lodash";
 import { Environment } from "./interfaces/environment";
-import { parse } from "path";
+import { Repository } from "./interfaces/repository";
 
 const writeFile = promisify(fsWriteFile);
 const readFile = promisify(fsReadFile);
 const readDir = promisify(fsReaddir);
 
+export type DeploymentEnvironmentType = "Test" | "Staging" | "Production";
 export type DeploymentStage = {
+  repo: string;
   name: string;
-  stage: string;
-  type: string; // Test, Staging, Production
+  type: DeploymentEnvironmentType;
 };
 
 export type PreReleaseConfig = {
@@ -30,20 +30,24 @@ export type PreReleaseConfig = {
    * But will set it to dummy values if set as true
    */
   overwriteSecuredVariables?: boolean;
+  /**
+   *
+   */
+  readFromFile?: boolean;
+  /**
+   * Delete from target
+   */
+  deleteInTarget?: boolean;
 };
 
 export class PreReleaseTrigger extends BitbucketService {
   async run(config: PreReleaseConfig) {
-    const { source, target, writeToFile, overwriteSecuredVariables } = config;
+    // get source environment
+    // check source repo exists
+    // check environment exists
 
-    if (writeToFile) {
-      this.copyToFile(source);
-    }
+    const { source, target, writeToFile, deleteInTarget, overwriteSecuredVariables } = config;
 
-    this.copyVariables(source, target);
-  }
-
-  private async copyToFile(source: DeploymentStage) {
     const repositories = await this.getAllRepositories([source.name]);
     console.log("Repositories", repositories.length);
 
@@ -72,11 +76,17 @@ export class PreReleaseTrigger extends BitbucketService {
       const result = await this.listEnvironmentVariables(environment?.repo_uuid, environment?.uuid);
       console.log(environment.name, result.values.length);
       const key = `${environment.repo_uuid}~${environment.repo_name}~${environment.name}`;
-      await writeFile(`${key}.json`, JSON.stringify(result));
+      if (writeToFile) {
+        // write the environment variable to a file if flag is on
+        await writeFile(`${key}.json`, JSON.stringify(result));
+      }
     }
-  }
 
-  private async copyVariables(source: DeploymentStage, target: DeploymentStage) {
+    // get target environment
+    // check environment exists otherwise create it
+    // create or update variables except for secured.
+    // delete if delete flag is on
+
     const repositoriesToMigrateTo = await this.getAllRepositories([target.name]);
     console.log("Repositories", repositoriesToMigrateTo.length);
 
@@ -85,7 +95,7 @@ export class PreReleaseTrigger extends BitbucketService {
     const parsedFiles = files.map((file) => splitFullName(file));
 
     const fileToCopy = parsedFiles.find(
-      ([, stage, appName]) => stage === source.stage && appName === source.name
+      ([, type, appName]) => type === source.type && appName === source.name
     );
 
     if (!fileToCopy) {
@@ -93,12 +103,11 @@ export class PreReleaseTrigger extends BitbucketService {
       return;
     }
 
-    const [repoId, stage, fullName] = fileToCopy;
+    const [repoId, type, fullName] = fileToCopy;
 
     for (const targeRepo of repositoriesToMigrateTo) {
       const fullPath = `${repoFolderKey}${fullName}`;
-      // await this.migrateRepositoryVariables(repoId, targeRepo.uuid);
-      await this.migrateEnvironmentVariables(targeRepo, target, fullPath);
+      await this.migrateEnvironmentVariables(targeRepo, target, fullPath, deleteInTarget);
     }
   }
 
@@ -118,7 +127,12 @@ export class PreReleaseTrigger extends BitbucketService {
 
     await Promise.all(createVars);
   }
-  async migrateEnvironmentVariables(repository: any, target: DeploymentStage, fullPath: string) {
+  async migrateEnvironmentVariables(
+    repository: Repository,
+    target: DeploymentStage,
+    fullPath: string,
+    deleteInTarget?: boolean
+  ) {
     // check given stage exists
     const currentEnvironment = await this.firstOrCreateEnvironment(repository, target);
     const variables = await readFile(fullPath, { encoding: "utf-8" });
@@ -167,34 +181,37 @@ export class PreReleaseTrigger extends BitbucketService {
         );
       })
     );
+
+    if (deleteInTarget) {
+      const deleteComparator = (a: any, b: any) => a.key === b.key;
+      const uniqueVarsToDelete = _.differenceWith(
+        originalVars,
+        currentVars.values,
+        deleteComparator
+      );
+      console.log("Total variables to delete", uniqueVarsToUpdate.length);
+
+      await Promise.all(
+        uniqueVarsToDelete.map((envVar: any) =>
+          this.deletePipelineVariable(repository.slug, envVar.uuid)
+        )
+      );
+    }
   }
 
   async firstOrCreateEnvironment(
-    repository: any,
+    repository: Repository,
     deploymentStage: DeploymentStage
   ): Promise<Environment> {
-    const { stage, type } = deploymentStage;
+    const { name, type } = deploymentStage;
     const currentEnvironments = await this.listEnvironments(repository.slug);
     const currentEnvironment = currentEnvironments?.values.filter((environment) =>
-      environment.name.toLowerCase().includes(stage.toLowerCase())
+      environment.name.toLowerCase().includes(name.toLowerCase())
     );
     if (currentEnvironment?.length) {
       return currentEnvironment[0];
     }
 
-    return await this.createEnvironment(repository.slug, stage, type);
-  }
-
-  async firstOrCreateVariable(repository: any, stage: string): Promise<Environment> {
-    const environmentType = mapStage(stage);
-    const currentEnvironments = await this.listEnvironments(repository.slug);
-    const currentEnvironment = currentEnvironments?.values.filter((environment) =>
-      environment.name.toLowerCase().includes(stage.toLowerCase())
-    );
-    if (currentEnvironment?.length) {
-      return currentEnvironment[0];
-    }
-
-    return await this.createEnvironment(repository.slug, stage, environmentType);
+    return await this.createEnvironment(repository.slug, name, type);
   }
 }
