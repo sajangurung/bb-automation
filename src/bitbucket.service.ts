@@ -197,6 +197,23 @@ export class BitbucketService {
     return data;
   }
 
+  async deleteDeploymentVariable(
+    repo_slug: string,
+    environment_uuid: string,
+    variable_uuid: string
+  ) {
+    console.log("deleting");
+
+    const { data } = await this.client.pipelines.deleteDeploymentVariable({
+      repo_slug,
+      environment_uuid,
+      variable_uuid,
+      workspace: this.workspace,
+    });
+    console.log("deleted", data);
+    return data;
+  }
+
   async updateEnvironmentVariables(
     repo_slug: string,
     environment_uuid: string,
@@ -318,6 +335,7 @@ export class BitbucketService {
         return this.filterRepositories(nextResult, projects, found);
       }
     }
+    console.log(projects);
 
     if (!projects.length) {
       return found;

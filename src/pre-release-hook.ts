@@ -33,52 +33,65 @@ export type PreReleaseConfig = {
   /**
    *
    */
-  readFromFile?: boolean;
+  readFromFile?: string;
   /**
    * Delete from target
    */
   deleteInTarget?: boolean;
 };
 
-export class PreReleaseTrigger extends BitbucketService {
+export class PreReleaseHook extends BitbucketService {
   async run(config: PreReleaseConfig) {
     // get source environment
     // check source repo exists
     // check environment exists
 
-    const { source, target, writeToFile, deleteInTarget, overwriteSecuredVariables } = config;
+    const {
+      source,
+      target,
+      writeToFile,
+      deleteInTarget,
+      overwriteSecuredVariables,
+      readFromFile,
+    } = config;
 
-    const repositories = await this.getAllRepositories([source.name]);
-    console.log("Repositories", repositories.length);
+    const repoFolderKey = "./repo-dump/";
 
-    const enviroments = await Promise.all(
-      repositories.map(async (repo) => {
-        const enviroments = await this.listEnvironments(repo.slug);
-        return enviroments?.values.map((value) => ({
-          ...value,
-          repo_uuid: repo.uuid,
-          repo_name: repo.name,
-        }));
-      })
-    );
+    if (!readFromFile) {
+      const repositories = await this.getAllRepositories([source.repo]);
+      console.log("Repositories", repositories.length);
 
-    const flattenedEnvironments = enviroments.flatMap((v) => v);
-    console.log(
-      "getting variables for",
-      flattenedEnvironments.map((r) => r?.name)
-    );
+      const enviroments = await Promise.all(
+        repositories.map(async (repo) => {
+          const enviroments = await this.listEnvironments(repo.slug);
+          return enviroments?.values.map((value) => ({
+            ...value,
+            repo_uuid: repo.uuid,
+            repo_name: repo.name,
+          }));
+        })
+      );
+      const flattenedEnvironments = enviroments.flatMap((v) => v);
+      console.log(
+        "getting variables for",
+        flattenedEnvironments.map((r) => r?.name)
+      );
 
-    for (const environment of flattenedEnvironments) {
-      if (!environment?.uuid) {
-        continue;
-      }
+      for (const environment of flattenedEnvironments) {
+        if (!environment?.uuid || environment.environment_type.name !== source.type) {
+          continue;
+        }
 
-      const result = await this.listEnvironmentVariables(environment?.repo_uuid, environment?.uuid);
-      console.log(environment.name, result.values.length);
-      const key = `${environment.repo_uuid}~${environment.repo_name}~${environment.name}`;
-      if (writeToFile) {
-        // write the environment variable to a file if flag is on
-        await writeFile(`${key}.json`, JSON.stringify(result));
+        const result = await this.listEnvironmentVariables(
+          environment?.repo_uuid,
+          environment?.uuid
+        );
+        console.log(environment.name, result.values.length);
+        const key = `${environment.repo_uuid}~${environment.repo_name}~${environment.name}`;
+        if (writeToFile) {
+          // write the environment variable to a file if flag is on
+          await writeFile(`${repoFolderKey}/${key}.json`, JSON.stringify(result.values));
+        }
       }
     }
 
@@ -87,15 +100,13 @@ export class PreReleaseTrigger extends BitbucketService {
     // create or update variables except for secured.
     // delete if delete flag is on
 
-    const repositoriesToMigrateTo = await this.getAllRepositories([target.name]);
+    const repositoriesToMigrateTo = await this.getAllRepositories([target.repo]);
     console.log("Repositories", repositoriesToMigrateTo.length);
 
-    const repoFolderKey = "./repo-dump/";
     const files: string[] = await readDir(repoFolderKey);
     const parsedFiles = files.map((file) => splitFullName(file));
-
     const fileToCopy = parsedFiles.find(
-      ([, type, appName]) => type === source.type && appName === source.name
+      ([, repoName, type]) => type === source.type && repoName === source.repo
     );
 
     if (!fileToCopy) {
@@ -103,10 +114,10 @@ export class PreReleaseTrigger extends BitbucketService {
       return;
     }
 
-    const [repoId, type, fullName] = fileToCopy;
+    const [repoId, repoName, type, path] = fileToCopy;
 
+    const fullPath = readFromFile ? readFromFile : path;
     for (const targeRepo of repositoriesToMigrateTo) {
-      const fullPath = `${repoFolderKey}${fullName}`;
       await this.migrateEnvironmentVariables(targeRepo, target, fullPath, deleteInTarget);
     }
   }
@@ -185,15 +196,14 @@ export class PreReleaseTrigger extends BitbucketService {
     if (deleteInTarget) {
       const deleteComparator = (a: any, b: any) => a.key === b.key;
       const uniqueVarsToDelete = _.differenceWith(
-        originalVars,
         currentVars.values,
+        originalVars,
         deleteComparator
       );
-      console.log("Total variables to delete", uniqueVarsToUpdate.length);
-
+      console.log("Total variables to delete", uniqueVarsToDelete.length);
       await Promise.all(
         uniqueVarsToDelete.map((envVar: any) =>
-          this.deletePipelineVariable(repository.slug, envVar.uuid)
+          this.deleteDeploymentVariable(repository.slug, currentEnvironment.uuid, envVar.uuid)
         )
       );
     }
