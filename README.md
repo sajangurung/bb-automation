@@ -39,7 +39,9 @@ Mandatory Flags
 
 Optional flags
 
-- writeToFile -> values can be source, target or both, this will write the variables to a file
-- readFromFile -> this will read variables from a file and write to a repository
-- overwriteSecured -> true/false defaults to false if true, this will set secured variables as dummy text
-- delete -> default false, if set to true, it will delete variables in target that is not present in source
+| Flag             | Options                    | Default  | Description                                                               |
+| ---------------- | -------------------------- | -------- | ------------------------------------------------------------------------- |
+| writeToFile      | `source`, `target`, `both` | `target` | this will write the variables to a file                                   |
+| readFromFile     | full file path             |          | this will read variables from a file and write to a repository            |
+| overwriteSecured | `true`, `false`            | `false`  | if true, this will set secured variables as dummy text                    |
+| delete           | `true`, `false`            | `false`  | if true, it will delete variables in target that is not present in source |
