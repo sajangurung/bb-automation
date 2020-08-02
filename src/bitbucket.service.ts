@@ -5,6 +5,7 @@ import { Config } from "./config";
 import { Environment } from "./interfaces/environment";
 
 export type EnvironmentType = "Test" | "Staging" | "Production";
+export type HttpStatus = 204 | number;
 export interface Paginated<T> {
   pagelen: string;
   size: string;
@@ -201,17 +202,15 @@ export class BitbucketService {
     repo_slug: string,
     environment_uuid: string,
     variable_uuid: string
-  ) {
-    console.log("deleting");
-
-    const { data } = await this.client.pipelines.deleteDeploymentVariable({
+  ): Promise<{ status: HttpStatus }> {
+    const { status } = await this.client.pipelines.deleteDeploymentVariable({
       repo_slug,
       environment_uuid,
       variable_uuid,
       workspace: this.workspace,
     });
-    console.log("deleted", data);
-    return data;
+
+    return status;
   }
 
   async updateEnvironmentVariables(

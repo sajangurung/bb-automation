@@ -58,41 +58,8 @@ export class PreReleaseHook extends BitbucketService {
     const repoFolderKey = "./repo-dump/";
 
     if (!readFromFile) {
-      const repositories = await this.getAllRepositories([source.repo]);
-      console.log("Repositories", repositories.length);
-
-      const enviroments = await Promise.all(
-        repositories.map(async (repo) => {
-          const enviroments = await this.listEnvironments(repo.slug);
-          return enviroments?.values.map((value) => ({
-            ...value,
-            repo_uuid: repo.uuid,
-            repo_name: repo.name,
-          }));
-        })
-      );
-      const flattenedEnvironments = enviroments.flatMap((v) => v);
-      console.log(
-        "getting variables for",
-        flattenedEnvironments.map((r) => r?.name)
-      );
-
-      for (const environment of flattenedEnvironments) {
-        if (!environment?.uuid || environment.environment_type.name !== source.type) {
-          continue;
-        }
-
-        const result = await this.listEnvironmentVariables(
-          environment?.repo_uuid,
-          environment?.uuid
-        );
-        console.log(environment.name, result.values.length);
-        const key = `${environment.repo_uuid}~${environment.repo_name}~${environment.name}`;
-        if (writeToFile) {
-          // write the environment variable to a file if flag is on
-          await writeFile(`${repoFolderKey}/${key}.json`, JSON.stringify(result.values));
-        }
-      }
+      const write = !!writeToFile;
+      this.copyVariablesToFile(source, write, repoFolderKey);
     }
 
     // get target environment
@@ -116,9 +83,48 @@ export class PreReleaseHook extends BitbucketService {
 
     const [repoId, repoName, type, path] = fileToCopy;
 
-    const fullPath = readFromFile ? readFromFile : path;
+    const fullPath = readFromFile ? readFromFile : `${repoFolderKey}${path}`;
+    console.log(fullPath);
     for (const targeRepo of repositoriesToMigrateTo) {
       await this.migrateEnvironmentVariables(targeRepo, target, fullPath, deleteInTarget);
+    }
+  }
+
+  private async copyVariablesToFile(
+    source: DeploymentStage,
+    writeToFile: boolean,
+    repoFolderKey: string
+  ) {
+    const repositories = await this.getAllRepositories([source.repo]);
+    console.log("Repositories", repositories.length);
+
+    const enviroments = await Promise.all(
+      repositories.map(async (repo) => {
+        const enviroments = await this.listEnvironments(repo.slug);
+        return enviroments?.values.map((value) => ({
+          ...value,
+          repo_uuid: repo.uuid,
+          repo_name: repo.name,
+        }));
+      })
+    );
+    const flattenedEnvironments = enviroments.flatMap((v) => v);
+    console.log(
+      "getting variables for",
+      flattenedEnvironments.map((r) => r?.name)
+    );
+
+    for (const environment of flattenedEnvironments) {
+      if (!environment?.uuid || environment.environment_type.name !== source.type) {
+        continue;
+      }
+
+      const result = await this.listEnvironmentVariables(environment?.repo_uuid, environment?.uuid);
+      const key = `${environment.repo_uuid}~${environment.repo_name}~${environment.name}`;
+      if (writeToFile) {
+        // write the environment variable to a file if flag is on
+        await writeFile(`${repoFolderKey}/${key}.json`, JSON.stringify(result.values));
+      }
     }
   }
 
@@ -201,11 +207,12 @@ export class PreReleaseHook extends BitbucketService {
         deleteComparator
       );
       console.log("Total variables to delete", uniqueVarsToDelete.length);
-      await Promise.all(
+      const result = await Promise.all(
         uniqueVarsToDelete.map((envVar: any) =>
           this.deleteDeploymentVariable(repository.slug, currentEnvironment.uuid, envVar.uuid)
         )
       );
+      console.log("Successfully deleted", result.filter(({ status }) => status === 204).length);
     }
   }
 
@@ -215,13 +222,12 @@ export class PreReleaseHook extends BitbucketService {
   ): Promise<Environment> {
     const { name, type } = deploymentStage;
     const currentEnvironments = await this.listEnvironments(repository.slug);
-    const currentEnvironment = currentEnvironments?.values.filter((environment) =>
+    const currentEnvironment = currentEnvironments?.values.find((environment) =>
       environment.name.toLowerCase().includes(name.toLowerCase())
     );
-    if (currentEnvironment?.length) {
-      return currentEnvironment[0];
-    }
 
-    return await this.createEnvironment(repository.slug, name, type);
+    return currentEnvironment
+      ? currentEnvironment
+      : await this.createEnvironment(repository.slug, name, type);
   }
 }
