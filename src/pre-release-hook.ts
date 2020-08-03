@@ -84,7 +84,6 @@ export class PreReleaseHook extends BitbucketService {
     const [repoId, repoName, type, path] = fileToCopy;
 
     const fullPath = readFromFile ? readFromFile : `${repoFolderKey}${path}`;
-    console.log(fullPath);
     for (const targeRepo of repositoriesToMigrateTo) {
       await this.migrateEnvironmentVariables(targeRepo, target, fullPath, deleteInTarget);
     }
