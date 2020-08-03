@@ -25,7 +25,7 @@ export type PostReleaseConfig = {
   target: string;
 };
 
-export class PostReleaseTrigger extends BitbucketService {
+export class PostReleaseHook extends BitbucketService {
   async run(postReleaseConfig: PostReleaseConfig) {
     const { source, destination, title, target, newBranch } = postReleaseConfig;
     // Get all repositories

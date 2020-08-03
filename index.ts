@@ -1,4 +1,4 @@
-import { PostReleaseTrigger, PostReleaseConfig } from "./src/post-release-hook";
+import { PostReleaseHook, PostReleaseConfig } from "./src/post-release-hook";
 import { PreReleaseHook, PreReleaseConfig } from "./src/pre-release-hook";
 
 const postReleaseConfig: PostReleaseConfig = {
@@ -9,7 +9,7 @@ const postReleaseConfig: PostReleaseConfig = {
   target: "release/1.1.12",
 };
 
-// const trigger = new PostReleaseTrigger();
+// const trigger = new PostReleaseHook();
 // trigger.run(postReleaseConfig);
 
 const preReleaseConfig: PreReleaseConfig = {
