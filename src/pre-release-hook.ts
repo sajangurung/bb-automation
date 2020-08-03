@@ -31,7 +31,7 @@ export type PreReleaseConfig = {
    */
   overwriteSecuredVariables?: boolean;
   /**
-   *
+   * Reads confg from file
    */
   readFromFile?: string;
   /**
