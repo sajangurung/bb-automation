@@ -9,8 +9,8 @@ const postReleaseConfig: PostReleaseConfig = {
   target: "release/1.1.12",
 };
 
-// const trigger = new PostReleaseHook();
-// trigger.run(postReleaseConfig);
+const postReleaseHook = new PostReleaseHook();
+postReleaseHook.run(postReleaseConfig);
 
 const preReleaseConfig: PreReleaseConfig = {
   source: {
@@ -27,5 +27,5 @@ const preReleaseConfig: PreReleaseConfig = {
   deleteInTarget: true,
   readFromFile: "./repo-dump/{679bde9a-eff3-4dab-8b11-ff9b7ec05fb5}~test-project~Test.json",
 };
-const trigger = new PreReleaseHook();
-trigger.run(preReleaseConfig);
+const preReleaseHook = new PreReleaseHook();
+preReleaseHook.run(preReleaseConfig);
